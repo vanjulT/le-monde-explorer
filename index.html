@@ -28,7 +28,7 @@
 
   <main class="mx-auto max-w-6xl p-4">
 
-    <section class="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Search and filters">
+    <section id="controls" class="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Search and filters">
       <div>
         <label for="search" class="mb-1 block text-sm font-medium">Search</label>
         <input id="search" type="search" placeholder="Search a country..."
@@ -75,6 +75,25 @@
     </p>
 
     <div id="country-grid" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"></div>
+
+    <!-- Compare view: two menus and the two countries side by side -->
+    <section id="compare-view" class="hidden" aria-label="Compare two favorites">
+      <div class="mb-4 grid gap-3 sm:grid-cols-2">
+        <div>
+          <label for="compare-a" class="mb-1 block text-sm font-medium">First country</label>
+          <select id="compare-a" class="w-full rounded-lg border border-slate-300 bg-white p-2"></select>
+        </div>
+
+        <div>
+          <label for="compare-b" class="mb-1 block text-sm font-medium">Second country</label>
+          <select id="compare-b" class="w-full rounded-lg border border-slate-300 bg-white p-2"></select>
+        </div>
+      </div>
+
+      <p id="compare-message" class="hidden rounded-lg bg-white p-6 text-center text-slate-600 shadow"></p>
+
+      <div id="compare-result" class="grid gap-4 sm:grid-cols-2"></div>
+    </section>
 
   </main>
 
