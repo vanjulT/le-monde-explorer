@@ -8,9 +8,11 @@ const errorMessage = document.getElementById("error-message");
 const emptyBox = document.getElementById("empty");
 const refreshButton = document.getElementById("refresh-button");
 const retryButton = document.getElementById("retry-button");
+const searchInput = document.getElementById("search");
 
 // ---------- Data ----------
-let allCountries = [];
+let allCountries = []; // everything the API gave us (never changed after loading)
+let searchText = ""; // what the user typed, in lower case
 
 // ---------- The 3 states: loading, error, empty ----------
 function setState(state, message = "") {
@@ -40,7 +42,7 @@ function makeLine(label, value) {
 function makeNoFlag() {
   const box = document.createElement("div");
   box.className =
-    "flex h-36 w-full items-center justify-center bg-slate-200 text-sm text-slate-500";
+    "flex h-36 w-full items-center justify-center bg-slate-300 text-sm text-slate-600";
   box.textContent = "No flag available";
   return box;
 }
@@ -69,7 +71,7 @@ function makeFlag(country) {
 function createCard(country) {
   const card = document.createElement("article");
   card.className =
-    "overflow-hidden rounded-xl bg-white shadow transition hover:shadow-lg";
+    "overflow-hidden rounded-xl bg-slate-200 shadow transition hover:shadow-lg";
   card.dataset.code = country.codes.alpha_3;
 
   const body = document.createElement("div");
@@ -93,7 +95,7 @@ function createCard(country) {
   return card;
 }
 
-// ---------- Showing the list ----------
+// ---------- Showing a list of countries ----------
 function renderCountries(list) {
   grid.replaceChildren();
 
@@ -102,12 +104,23 @@ function renderCountries(list) {
     return;
   }
 
-  // A fragment lets us build 254 cards off-screen, then add them once
+  // A fragment lets us build many cards off-screen, then add them once
   const fragment = document.createDocumentFragment();
   list.forEach((country) => fragment.append(createCard(country)));
   grid.append(fragment);
 
   setState("ready");
+}
+
+// ---------- Which countries should be visible right now? ----------
+function getVisibleCountries() {
+  return allCountries.filter((country) =>
+    country.names.common.toLowerCase().includes(searchText)
+  );
+}
+
+function showCountries() {
+  renderCountries(getVisibleCountries());
 }
 
 // ---------- Loading the data ----------
@@ -117,14 +130,19 @@ async function loadCountries() {
 
   try {
     allCountries = await fetchAllCountries();
-    renderCountries(allCountries);
+    showCountries();
   } catch (error) {
     console.error(error);
     setState("error", `Could not load the countries. ${error.message}`);
   }
 }
 
-// ---------- Buttons ----------
+// ---------- Events ----------
+searchInput.addEventListener("input", () => {
+  searchText = searchInput.value.trim().toLowerCase();
+  showCountries();
+});
+
 refreshButton.addEventListener("click", loadCountries);
 retryButton.addEventListener("click", loadCountries);
 
