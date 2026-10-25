@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Le Monde Explorer</title>
+  <link rel="stylesheet" href="css/output.css">
+</head>
+<body class="bg-orange-50 text-slate-800">
+
+  <header class="bg-white shadow">
+    <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 p-4">
+      <h1 class="text-2xl font-bold text-orange-800">Le Monde Explorer</h1>
+
+      <nav class="flex flex-wrap gap-2" aria-label="Views">
+        <button id="tab-all" class="rounded-lg bg-orange-700 px-4 py-2 text-white hover:bg-orange-800">
+          All countries
+        </button>
+        <button id="tab-favorites" class="rounded-lg bg-slate-200 px-4 py-2 hover:bg-slate-300">
+          Favorites (<span id="favorites-count">0</span>)
+        </button>
+        <button id="tab-compare" class="rounded-lg bg-slate-200 px-4 py-2 hover:bg-slate-300">
+          Compare
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-6xl p-4">
+
+    <section class="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Search and filters">
+      <div>
+        <label for="search" class="mb-1 block text-sm font-medium">Search</label>
+        <input id="search" type="search" placeholder="Search a country..."
+          class="w-full rounded-lg border border-slate-300 bg-white p-2 focus:border-orange-600 focus:outline-none">
+      </div>
+
+      <div>
+        <label for="region" class="mb-1 block text-sm font-medium">Region</label>
+        <select id="region" class="w-full rounded-lg border border-slate-300 bg-white p-2">
+          <option value="">All regions</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="sort" class="mb-1 block text-sm font-medium">Sort by</label>
+        <select id="sort" class="w-full rounded-lg border border-slate-300 bg-white p-2">
+          <option value="name">Name (A to Z)</option>
+          <option value="population">Population (high to low)</option>
+          <option value="area">Area (large to small)</option>
+        </select>
+      </div>
+
+      <div class="flex items-end">
+        <button id="refresh-button"
+          class="w-full rounded-lg bg-orange-700 px-4 py-2 text-white hover:bg-orange-800 active:bg-orange-900">
+          Refresh data
+        </button>
+      </div>
+    </section>
+
+    <p id="loading" class="hidden rounded-lg bg-white p-6 text-center text-slate-600 shadow" role="status">
+      Loading countries...
+    </p>
+
+    <div id="error" class="hidden rounded-lg border border-red-300 bg-red-50 p-6 text-center text-red-800" role="alert">
+      <p id="error-message" class="mb-3 font-medium">Something went wrong.</p>
+      <button id="retry-button" class="rounded-lg bg-red-700 px-4 py-2 text-white hover:bg-red-800">
+        Try again
+      </button>
+    </div>
+
+    <p id="empty" class="hidden rounded-lg bg-white p-6 text-center text-slate-600 shadow">
+      No countries found. Try another search.
+    </p>
+
+    <div id="country-grid" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"></div>
+
+  </main>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
