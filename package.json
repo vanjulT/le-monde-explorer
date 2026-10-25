@@ -1,0 +1,13 @@
+{
+  "name": "le-monde-explorer",
+  "version": "1.0.0",
+  "description": "A country discovery app built with vanilla JavaScript",
+  "scripts": {
+    "dev": "tailwindcss -i ./src/input.css -o ./css/output.css --watch",
+    "build": "tailwindcss -i ./src/input.css -o ./css/output.css --minify"
+  },
+  "dependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "tailwindcss": "^4.3.3"
+  }
+}
