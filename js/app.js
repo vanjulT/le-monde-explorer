@@ -1,4 +1,5 @@
 import { fetchAllCountries } from "./api.js";
+import { loadFavorites, saveFavorites } from "./storage.js";
 
 // ---------- Page elements ----------
 const grid = document.getElementById("country-grid");
@@ -13,14 +14,24 @@ const regionSelect = document.getElementById("region");
 const sortSelect = document.getElementById("sort");
 const detailDialog = document.getElementById("detail-dialog");
 const detailContent = document.getElementById("detail-content");
+const tabAll = document.getElementById("tab-all");
+const tabFavorites = document.getElementById("tab-favorites");
+const favoritesCount = document.getElementById("favorites-count");
 
 // ---------- Data ----------
 let allCountries = []; // everything the API gave us (never changed after loading)
 let searchText = ""; // what the user typed, in lower case
 let selectedRegion = ""; // "" means all regions
 let sortBy = "name"; // "name", "population" or "area"
+let favorites = loadFavorites(); // list of country codes, read from LocalStorage
+let currentView = "all"; // "all" or "favorites"
+let currentDetailCode = null; // the country shown in the pop-up right now
 
 // ---------- The 3 states: loading, error, empty ----------
+const DEFAULT_EMPTY_TEXT = "No countries found. Try another search.";
+const NO_FAVORITES_TEXT =
+  "You have no favorites yet. Click the star on a country to save it.";
+
 function setState(state, message = "") {
   loadingBox.classList.toggle("hidden", state !== "loading");
   errorBox.classList.toggle("hidden", state !== "error");
@@ -74,11 +85,73 @@ function makeFlag(country) {
   return flag;
 }
 
+// ---------- Favorites ----------
+function isFavorite(code) {
+  return favorites.includes(code);
+}
+
+function updateFavoritesCount() {
+  favoritesCount.textContent = favorites.length;
+}
+
+// The star button. Its look depends on whether the country is a favorite.
+function makeFavoriteButton(country, extraClasses) {
+  const code = country.codes.alpha_3;
+  const saved = isFavorite(code);
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.dataset.action = "favorite";
+  button.dataset.code = code;
+  button.textContent = saved ? "★" : "☆";
+  button.setAttribute("aria-pressed", saved);
+  button.setAttribute(
+    "aria-label",
+    saved
+      ? `Remove ${country.names.common} from favorites`
+      : `Add ${country.names.common} to favorites`
+  );
+  button.className = `rounded-full bg-white/90 px-2 py-1 text-xl text-orange-600 hover:bg-white ${extraClasses}`;
+  return button;
+}
+
+function toggleFavorite(code) {
+  if (isFavorite(code)) {
+    // keep every code except this one
+    favorites = favorites.filter((savedCode) => savedCode !== code);
+  } else {
+    favorites = [...favorites, code];
+  }
+
+  saveFavorites(favorites); // keep LocalStorage in sync
+  updateFavoritesCount();
+  showCountries();
+
+  // If the pop-up is open, redraw it so its star changes too
+  if (detailDialog.open && currentDetailCode) {
+    openDetail(currentDetailCode);
+  }
+}
+
+// ---------- Tabs: all countries / favorites ----------
+function styleTab(button, isActive) {
+  button.className = isActive
+    ? "rounded-lg bg-orange-700 px-4 py-2 text-white hover:bg-orange-800"
+    : "rounded-lg bg-slate-200 px-4 py-2 hover:bg-slate-300";
+}
+
+function setView(view) {
+  currentView = view;
+  styleTab(tabAll, view === "all");
+  styleTab(tabFavorites, view === "favorites");
+  showCountries();
+}
+
 // ---------- Building one card ----------
 function createCard(country) {
   const card = document.createElement("article");
   card.className =
-    "cursor-pointer overflow-hidden rounded-xl bg-slate-200 shadow transition hover:shadow-lg";
+    "relative cursor-pointer overflow-hidden rounded-xl bg-slate-200 shadow transition hover:shadow-lg";
   card.dataset.code = country.codes.alpha_3;
   card.tabIndex = 0; // so the keyboard can reach the card
 
@@ -101,7 +174,11 @@ function createCard(country) {
     makeLine("Region", country.region)
   );
 
-  card.append(makeFlag(country), body);
+  card.append(
+    makeFlag(country),
+    body,
+    makeFavoriteButton(country, "absolute right-2 top-2")
+  );
   return card;
 }
 
@@ -110,6 +187,8 @@ function renderCountries(list) {
   grid.replaceChildren();
 
   if (list.length === 0) {
+    const noFavoritesYet = currentView === "favorites" && favorites.length === 0;
+    emptyBox.textContent = noFavoritesYet ? NO_FAVORITES_TEXT : DEFAULT_EMPTY_TEXT;
     setState("empty");
     return;
   }
@@ -172,7 +251,10 @@ function getVisibleCountries() {
       const matchesRegion =
         selectedRegion === "" || country.region === selectedRegion;
 
-      return matchesSearch && matchesRegion;
+      const matchesView =
+        currentView === "all" || isFavorite(country.codes.alpha_3);
+
+      return matchesSearch && matchesRegion && matchesView;
     })
     .sort(compareCountries);
 }
@@ -205,13 +287,16 @@ function buildDetail(country) {
   const body = document.createElement("div");
   body.className = "space-y-3 p-5";
 
-  // Title + close button
+  // Title + star + close button
   const titleRow = document.createElement("div");
   titleRow.className = "flex items-start justify-between gap-3";
 
   const title = document.createElement("h2");
   title.className = "text-2xl font-bold text-orange-800";
   title.textContent = country.names.common;
+
+  const buttons = document.createElement("div");
+  buttons.className = "flex items-center gap-2";
 
   const closeButton = document.createElement("button");
   closeButton.type = "button";
@@ -220,7 +305,8 @@ function buildDetail(country) {
   closeButton.className =
     "rounded-lg bg-slate-300 px-3 py-1 text-sm hover:bg-slate-400";
 
-  titleRow.append(title, closeButton);
+  buttons.append(makeFavoriteButton(country, "border border-slate-300"), closeButton);
+  titleRow.append(title, buttons);
 
   // The facts
   const capitals = (country.capitals ?? []).map((c) => c.name).join(", ");
@@ -286,6 +372,7 @@ function openDetail(code) {
     return;
   }
 
+  currentDetailCode = code;
   detailContent.replaceChildren(buildDetail(country));
 
   // If the pop-up is already open (we clicked a border chip), just change its content
@@ -327,10 +414,20 @@ sortSelect.addEventListener("change", () => {
   showCountries();
 });
 
+tabAll.addEventListener("click", () => setView("all"));
+tabFavorites.addEventListener("click", () => setView("favorites"));
+
 // EVENT DELEGATION: one listener on the grid instead of one on every card.
 // A click on anything inside a card "bubbles up" to the grid,
-// and closest("article") tells us which card it came from.
+// and closest() tells us what exactly was clicked.
 grid.addEventListener("click", (event) => {
+  const starButton = event.target.closest("[data-action='favorite']");
+
+  if (starButton) {
+    toggleFavorite(starButton.dataset.code);
+    return; // do not also open the pop-up
+  }
+
   const card = event.target.closest("article");
 
   if (card) {
@@ -340,20 +437,22 @@ grid.addEventListener("click", (event) => {
 
 // Same idea for the keyboard: Enter on a focused card opens it
 grid.addEventListener("keydown", (event) => {
-  const card = event.target.closest("article");
-
-  if (card && event.key === "Enter") {
-    openDetail(card.dataset.code);
+  // only when the card itself is focused (not the star inside it)
+  if (event.target.matches("article") && event.key === "Enter") {
+    openDetail(event.target.dataset.code);
   }
 });
 
-// One listener on the pop-up handles the Close button, the border chips,
+// One listener on the pop-up handles the star, the Close button, the border chips,
 // and a click on the dark area around the pop-up
 detailDialog.addEventListener("click", (event) => {
+  const starButton = event.target.closest("[data-action='favorite']");
   const chip = event.target.closest("[data-border]");
   const closeButton = event.target.closest("[data-action='close']");
 
-  if (chip) {
+  if (starButton) {
+    toggleFavorite(starButton.dataset.code);
+  } else if (chip) {
     openDetail(chip.dataset.border);
   } else if (closeButton || event.target === detailDialog) {
     detailDialog.close();
@@ -364,4 +463,5 @@ refreshButton.addEventListener("click", loadCountries);
 retryButton.addEventListener("click", loadCountries);
 
 // ---------- Start ----------
+updateFavoritesCount();
 loadCountries();
