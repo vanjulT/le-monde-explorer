@@ -3,6 +3,7 @@ import { loadFavorites, saveFavorites } from "./storage.js";
 
 // ---------- Page elements ----------
 const grid = document.getElementById("country-grid");
+const controls = document.getElementById("controls");
 const loadingBox = document.getElementById("loading");
 const errorBox = document.getElementById("error");
 const errorMessage = document.getElementById("error-message");
@@ -16,7 +17,13 @@ const detailDialog = document.getElementById("detail-dialog");
 const detailContent = document.getElementById("detail-content");
 const tabAll = document.getElementById("tab-all");
 const tabFavorites = document.getElementById("tab-favorites");
+const tabCompare = document.getElementById("tab-compare");
 const favoritesCount = document.getElementById("favorites-count");
+const compareView = document.getElementById("compare-view");
+const compareA = document.getElementById("compare-a");
+const compareB = document.getElementById("compare-b");
+const compareMessage = document.getElementById("compare-message");
+const compareResult = document.getElementById("compare-result");
 
 // ---------- Data ----------
 let allCountries = []; // everything the API gave us (never changed after loading)
@@ -24,7 +31,7 @@ let searchText = ""; // what the user typed, in lower case
 let selectedRegion = ""; // "" means all regions
 let sortBy = "name"; // "name", "population" or "area"
 let favorites = loadFavorites(); // list of country codes, read from LocalStorage
-let currentView = "all"; // "all" or "favorites"
+let currentView = "all"; // "all", "favorites" or "compare"
 let currentDetailCode = null; // the country shown in the pop-up right now
 
 // ---------- The 3 states: loading, error, empty ----------
@@ -85,6 +92,26 @@ function makeFlag(country) {
   return flag;
 }
 
+// Text helpers, used by the pop-up and by the compare view
+function getCapitals(country) {
+  return (country.capitals ?? []).map((c) => c.name).join(", ") || "No capital";
+}
+
+function getCurrencies(country) {
+  return (
+    (country.currencies ?? []).map((c) => `${c.name} (${c.symbol})`).join(", ") ||
+    "None"
+  );
+}
+
+function getLanguages(country) {
+  return (country.languages ?? []).map((l) => l.name).join(", ") || "None";
+}
+
+function getArea(country) {
+  return country.area?.kilometers ?? 0;
+}
+
 // ---------- Favorites ----------
 function isFavorite(code) {
   return favorites.includes(code);
@@ -133,20 +160,6 @@ function toggleFavorite(code) {
   }
 }
 
-// ---------- Tabs: all countries / favorites ----------
-function styleTab(button, isActive) {
-  button.className = isActive
-    ? "rounded-lg bg-orange-700 px-4 py-2 text-white hover:bg-orange-800"
-    : "rounded-lg bg-slate-200 px-4 py-2 hover:bg-slate-300";
-}
-
-function setView(view) {
-  currentView = view;
-  styleTab(tabAll, view === "all");
-  styleTab(tabFavorites, view === "favorites");
-  showCountries();
-}
-
 // ---------- Building one card ----------
 function createCard(country) {
   const card = document.createElement("article");
@@ -164,7 +177,7 @@ function createCard(country) {
 
   const capital = country.capitals?.[0]?.name ?? "No capital";
   const population = country.population.toLocaleString("en-US");
-  const area = (country.area?.kilometers ?? 0).toLocaleString("en-US");
+  const area = getArea(country).toLocaleString("en-US");
 
   body.append(
     name,
@@ -231,9 +244,7 @@ function compareCountries(a, b) {
   }
 
   if (sortBy === "area") {
-    const areaA = a.area?.kilometers ?? 0;
-    const areaB = b.area?.kilometers ?? 0;
-    return areaB - areaA; // big to small
+    return getArea(b) - getArea(a); // big to small
   }
 
   return a.names.common.localeCompare(b.names.common); // A to Z
@@ -252,7 +263,7 @@ function getVisibleCountries() {
         selectedRegion === "" || country.region === selectedRegion;
 
       const matchesView =
-        currentView === "all" || isFavorite(country.codes.alpha_3);
+        currentView !== "favorites" || isFavorite(country.codes.alpha_3);
 
       return matchesSearch && matchesRegion && matchesView;
     })
@@ -309,21 +320,15 @@ function buildDetail(country) {
   titleRow.append(title, buttons);
 
   // The facts
-  const capitals = (country.capitals ?? []).map((c) => c.name).join(", ");
-  const currencies = (country.currencies ?? [])
-    .map((c) => `${c.name} (${c.symbol})`)
-    .join(", ");
-  const languages = (country.languages ?? []).map((l) => l.name).join(", ");
-
   body.append(
     titleRow,
     makeLine("Population", country.population.toLocaleString("en-US")),
-    makeLine("Area", `${(country.area?.kilometers ?? 0).toLocaleString("en-US")} km²`),
-    makeLine("Capital", capitals || "No capital"),
+    makeLine("Area", `${getArea(country).toLocaleString("en-US")} km²`),
+    makeLine("Capital", getCapitals(country)),
     makeLine("Region", country.region),
     makeLine("Subregion", country.subregion || "None"),
-    makeLine("Currencies", currencies || "None"),
-    makeLine("Languages", languages || "None")
+    makeLine("Currencies", getCurrencies(country)),
+    makeLine("Languages", getLanguages(country))
   );
 
   // Border countries as clickable chips
@@ -383,6 +388,147 @@ function openDetail(code) {
   detailDialog.scrollTop = 0;
 }
 
+// ---------- The compare view ----------
+// One row of the comparison. The bigger number gets a highlight.
+function makeCompareRow(label, value, isBigger = false) {
+  const row = document.createElement("p");
+  row.className = isBigger
+    ? "rounded bg-orange-200 px-2 py-1 text-sm font-semibold text-orange-900"
+    : "px-2 py-1 text-sm text-slate-700";
+
+  const strong = document.createElement("span");
+  strong.className = "font-medium";
+  strong.textContent = `${label}: `;
+
+  row.append(strong, isBigger ? `${value} (larger)` : value);
+  return row;
+}
+
+// One column: a country, compared with the other one
+function createCompareCard(country, other) {
+  const card = document.createElement("article");
+  card.className = "overflow-hidden rounded-xl bg-slate-200 shadow";
+
+  const body = document.createElement("div");
+  body.className = "space-y-1 p-4";
+
+  const name = document.createElement("h2");
+  name.className = "mb-2 text-xl font-bold text-orange-800";
+  name.textContent = country.names.common;
+
+  const biggerPopulation = country.population > other.population;
+  const biggerArea = getArea(country) > getArea(other);
+
+  body.append(
+    name,
+    makeCompareRow(
+      "Population",
+      country.population.toLocaleString("en-US"),
+      biggerPopulation
+    ),
+    makeCompareRow(
+      "Area",
+      `${getArea(country).toLocaleString("en-US")} km²`,
+      biggerArea
+    ),
+    makeCompareRow("Capital", getCapitals(country)),
+    makeCompareRow("Region", country.region),
+    makeCompareRow("Currencies", getCurrencies(country)),
+    makeCompareRow("Languages", getLanguages(country)),
+    makeCompareRow("Border countries", (country.borders ?? []).length)
+  );
+
+  card.append(makeFlag(country), body);
+  return card;
+}
+
+// Fill one menu with the favorites and select the wanted one
+function fillCompareMenu(select, countries, wantedCode) {
+  select.replaceChildren();
+
+  countries.forEach((country) => {
+    const option = document.createElement("option");
+    option.value = country.codes.alpha_3;
+    option.textContent = country.names.common;
+    select.append(option);
+  });
+
+  select.value = wantedCode;
+}
+
+function showCompare() {
+  compareResult.replaceChildren();
+
+  // the saved codes -> the real countries (skipping any we cannot find)
+  const saved = favorites.map(findCountryByCode).filter((country) => country);
+
+  if (saved.length < 2) {
+    compareA.replaceChildren();
+    compareB.replaceChildren();
+    compareMessage.textContent =
+      allCountries.length === 0
+        ? "The countries are not loaded yet."
+        : "Save at least 2 favorites to compare them. Click the star on a country.";
+    compareMessage.classList.remove("hidden");
+    return;
+  }
+
+  compareMessage.classList.add("hidden");
+
+  // keep what the user picked if it is still possible, otherwise use the first two
+  const codes = saved.map((country) => country.codes.alpha_3);
+  const firstCode = codes.includes(compareA.value) ? compareA.value : codes[0];
+  const secondCode = codes.includes(compareB.value)
+    ? compareB.value
+    : codes.find((code) => code !== firstCode);
+
+  fillCompareMenu(compareA, saved, firstCode);
+  fillCompareMenu(compareB, saved, secondCode);
+
+  const first = findCountryByCode(firstCode);
+  const second = findCountryByCode(secondCode);
+
+  compareResult.append(
+    createCompareCard(first, second),
+    createCompareCard(second, first)
+  );
+}
+
+// ---------- Tabs: all countries / favorites / compare ----------
+function styleTab(button, isActive) {
+  button.className = isActive
+    ? "rounded-lg bg-orange-700 px-4 py-2 text-white hover:bg-orange-800"
+    : "rounded-lg bg-slate-200 px-4 py-2 hover:bg-slate-300";
+}
+
+function showCurrentView() {
+  if (currentView === "compare") {
+    showCompare();
+  } else {
+    showCountries();
+  }
+}
+
+function setView(view) {
+  currentView = view;
+  const isCompare = view === "compare";
+
+  styleTab(tabAll, view === "all");
+  styleTab(tabFavorites, view === "favorites");
+  styleTab(tabCompare, isCompare);
+
+  // The compare view has its own page area, so hide the search and the grid
+  controls.classList.toggle("hidden", isCompare);
+  grid.classList.toggle("hidden", isCompare);
+  compareView.classList.toggle("hidden", !isCompare);
+
+  if (isCompare) {
+    setState("ready"); // hide the loading, error and empty messages
+  }
+
+  showCurrentView();
+}
+
 // ---------- Loading the data ----------
 async function loadCountries() {
   setState("loading");
@@ -391,7 +537,7 @@ async function loadCountries() {
   try {
     allCountries = await fetchAllCountries();
     fillRegionMenu();
-    showCountries();
+    showCurrentView();
   } catch (error) {
     console.error(error);
     setState("error", `Could not load the countries. ${error.message}`);
@@ -416,6 +562,10 @@ sortSelect.addEventListener("change", () => {
 
 tabAll.addEventListener("click", () => setView("all"));
 tabFavorites.addEventListener("click", () => setView("favorites"));
+tabCompare.addEventListener("click", () => setView("compare"));
+
+compareA.addEventListener("change", showCompare);
+compareB.addEventListener("change", showCompare);
 
 // EVENT DELEGATION: one listener on the grid instead of one on every card.
 // A click on anything inside a card "bubbles up" to the grid,
