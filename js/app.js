@@ -9,10 +9,14 @@ const emptyBox = document.getElementById("empty");
 const refreshButton = document.getElementById("refresh-button");
 const retryButton = document.getElementById("retry-button");
 const searchInput = document.getElementById("search");
+const regionSelect = document.getElementById("region");
+const sortSelect = document.getElementById("sort");
 
 // ---------- Data ----------
 let allCountries = []; // everything the API gave us (never changed after loading)
 let searchText = ""; // what the user typed, in lower case
+let selectedRegion = ""; // "" means all regions
+let sortBy = "name"; // "name", "population" or "area"
 
 // ---------- The 3 states: loading, error, empty ----------
 function setState(state, message = "") {
@@ -83,10 +87,12 @@ function createCard(country) {
 
   const capital = country.capitals?.[0]?.name ?? "No capital";
   const population = country.population.toLocaleString("en-US");
+  const area = (country.area?.kilometers ?? 0).toLocaleString("en-US");
 
   body.append(
     name,
     makeLine("Population", population),
+    makeLine("Area", `${area} km²`),
     makeLine("Capital", capital),
     makeLine("Region", country.region)
   );
@@ -112,11 +118,59 @@ function renderCountries(list) {
   setState("ready");
 }
 
+// ---------- Filling the region menu from the real data ----------
+function fillRegionMenu() {
+  // 1. take the region of every country
+  // 2. remove empty ones and duplicates (a Set keeps each value once)
+  // 3. sort them A to Z
+  const regions = [...new Set(allCountries.map((country) => country.region))]
+    .filter((region) => region)
+    .sort();
+
+  // keep the first option ("All regions"), remove the rest, then add ours
+  regionSelect.length = 1;
+
+  regions.forEach((region) => {
+    const option = document.createElement("option");
+    option.value = region;
+    option.textContent = region;
+    regionSelect.append(option);
+  });
+}
+
+// ---------- Sorting ----------
+// A sort function gets two countries (a and b) and returns:
+//   a negative number -> a goes first
+//   a positive number -> b goes first
+function compareCountries(a, b) {
+  if (sortBy === "population") {
+    return b.population - a.population; // big to small
+  }
+
+  if (sortBy === "area") {
+    const areaA = a.area?.kilometers ?? 0;
+    const areaB = b.area?.kilometers ?? 0;
+    return areaB - areaA; // big to small
+  }
+
+  return a.names.common.localeCompare(b.names.common); // A to Z
+}
+
 // ---------- Which countries should be visible right now? ----------
 function getVisibleCountries() {
-  return allCountries.filter((country) =>
-    country.names.common.toLowerCase().includes(searchText)
-  );
+  // filter() gives us a new list, so sorting it does not touch allCountries
+  return allCountries
+    .filter((country) => {
+      const matchesSearch = country.names.common
+        .toLowerCase()
+        .includes(searchText);
+
+      const matchesRegion =
+        selectedRegion === "" || country.region === selectedRegion;
+
+      return matchesSearch && matchesRegion;
+    })
+    .sort(compareCountries);
 }
 
 function showCountries() {
@@ -130,6 +184,7 @@ async function loadCountries() {
 
   try {
     allCountries = await fetchAllCountries();
+    fillRegionMenu();
     showCountries();
   } catch (error) {
     console.error(error);
@@ -140,6 +195,16 @@ async function loadCountries() {
 // ---------- Events ----------
 searchInput.addEventListener("input", () => {
   searchText = searchInput.value.trim().toLowerCase();
+  showCountries();
+});
+
+regionSelect.addEventListener("change", () => {
+  selectedRegion = regionSelect.value;
+  showCountries();
+});
+
+sortSelect.addEventListener("change", () => {
+  sortBy = sortSelect.value;
   showCountries();
 });
 
