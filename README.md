@@ -10,7 +10,7 @@ This is my Milestone 2 project (JavaScript Mastery) for the WSCube Tech Full Sta
 
 ## Links
 
-- Live site: [add the Vercel link here]
+- Live site: https://le-monde-explorer.vercel.app
 - Code: https://github.com/vanjulT/le-monde-explorer
 
 ## What it does
