@@ -545,9 +545,14 @@ async function loadCountries() {
 }
 
 // ---------- Events ----------
+let searchTimer = null;
+
 searchInput.addEventListener("input", () => {
-  searchText = searchInput.value.trim().toLowerCase();
-  showCountries();
+  clearTimeout(searchTimer); // cancel the previous waiting timer
+  searchTimer = setTimeout(() => {
+    searchText = searchInput.value.trim().toLowerCase();
+    showCountries();
+  }, 300);
 });
 
 regionSelect.addEventListener("change", () => {
