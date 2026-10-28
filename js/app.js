@@ -33,6 +33,7 @@ let sortBy = "name"; // "name", "population" or "area"
 let favorites = loadFavorites(); // list of country codes, read from LocalStorage
 let currentView = "all"; // "all", "favorites" or "compare"
 let currentDetailCode = null; // the country shown in the pop-up right now
+let isLoading = false; // true while the countries are being loaded
 
 // ---------- The 3 states: loading, error, empty ----------
 const DEFAULT_EMPTY_TEXT = "No countries found. Try another search.";
@@ -531,6 +532,14 @@ function setView(view) {
 
 // ---------- Loading the data ----------
 async function loadCountries() {
+  // A second request must not start while one is still running,
+  // otherwise an older answer could arrive last and overwrite the newer one
+  if (isLoading) {
+    return;
+  }
+  isLoading = true;
+  refreshButton.disabled = true;
+
   setState("loading");
   grid.replaceChildren();
 
@@ -541,6 +550,10 @@ async function loadCountries() {
   } catch (error) {
     console.error(error);
     setState("error", `Could not load the countries. ${error.message}`);
+  } finally {
+    // finally runs after try or catch, so the button always comes back
+    isLoading = false;
+    refreshButton.disabled = false;
   }
 }
 
