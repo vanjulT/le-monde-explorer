@@ -1,4 +1,4 @@
-import { fetchAllCountries } from "./api.js";
+import { fetchCountriesWithBackup } from "./api.js";
 import { loadFavorites, saveFavorites } from "./storage.js";
 
 // ---------- Page elements ----------
@@ -8,6 +8,7 @@ const loadingBox = document.getElementById("loading");
 const errorBox = document.getElementById("error");
 const errorMessage = document.getElementById("error-message");
 const emptyBox = document.getElementById("empty");
+const backupNotice = document.getElementById("backup-notice");
 const refreshButton = document.getElementById("refresh-button");
 const retryButton = document.getElementById("retry-button");
 const searchInput = document.getElementById("search");
@@ -544,11 +545,21 @@ async function loadCountries() {
   grid.replaceChildren();
 
   try {
-    allCountries = await fetchAllCountries();
+    const result = await fetchCountriesWithBackup();
+    allCountries = result.countries;
+
+    // Tell the user when we show the saved copy instead of live data
+    backupNotice.classList.toggle("hidden", !result.fromBackup);
+    if (result.fromBackup) {
+      backupNotice.textContent =
+        `The live country service is not answering right now, so you are seeing a saved copy from ${result.savedOn}. Click "Refresh data" to try again.`;
+    }
+
     fillRegionMenu();
     showCurrentView();
   } catch (error) {
     console.error(error);
+    backupNotice.classList.add("hidden");
     setState("error", `Could not load the countries. ${error.message}`);
   } finally {
     // finally runs after try or catch, so the button always comes back

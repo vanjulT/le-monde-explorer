@@ -45,3 +45,26 @@ export async function fetchAllCountries() {
 
   return countries;
 }
+// A saved copy of the same data, kept in the project (data/countries-backup.json).
+// We use it only when the API cannot answer: the key is refused on this address,
+// the free plan limit is reached, or the API is down.
+const BACKUP_URL = "./data/countries-backup.json";
+
+export async function fetchCountriesWithBackup() {
+  try {
+    const countries = await fetchAllCountries();
+    return { countries, fromBackup: false };
+  } catch (apiError) {
+    console.warn("The API did not answer, so the saved copy is used.", apiError);
+
+    // If the browser is offline this fails too, and the error state is shown.
+    // "no-store" makes sure the browser does not secretly reuse an old copy.
+    const response = await fetch(BACKUP_URL, { cache: "no-store" });
+    if (!response.ok) {
+      throw apiError;
+    }
+
+    const json = await response.json();
+    return { countries: json.countries, fromBackup: true, savedOn: json.savedOn };
+  }
+}
