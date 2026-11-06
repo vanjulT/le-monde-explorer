@@ -3,7 +3,7 @@
 
 const STORAGE_KEY = "le-monde-explorer-favorites";
 
-export function loadFavorites() {
+function loadFavorites() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     const list = saved ? JSON.parse(saved) : [];
@@ -16,7 +16,7 @@ export function loadFavorites() {
   }
 }
 
-export function saveFavorites(codes) {
+function saveFavorites(codes) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(codes));
   } catch (error) {

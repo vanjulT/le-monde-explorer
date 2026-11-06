@@ -1,4 +1,4 @@
-import { API_KEY, BASE_URL } from "./config.js";
+// Uses API_KEY and BASE_URL from config.js (loaded before this file in index.html).
 
 const PAGE_SIZE = 100; // the free plan allows 100 countries per request
 
@@ -20,7 +20,7 @@ const FIELDS = [
 ].join(",");
 
 // Gets all the countries, 100 at a time, until the API says there are no more
-export async function fetchAllCountries() {
+async function fetchAllCountries() {
   const countries = [];
   let offset = 0;
   let more = true;
@@ -45,26 +45,22 @@ export async function fetchAllCountries() {
 
   return countries;
 }
-// A saved copy of the same data, kept in the project (data/countries-backup.json).
+
+// A saved copy of the same data, kept in the project (data/countries-backup.js).
 // We use it only when the API cannot answer: the key is refused on this address,
 // the free plan limit is reached, or the API is down.
-const BACKUP_URL = "./data/countries-backup.json";
-
-export async function fetchCountriesWithBackup() {
+async function fetchCountriesWithBackup() {
   try {
     const countries = await fetchAllCountries();
     return { countries, fromBackup: false };
   } catch (apiError) {
-    console.warn("The API did not answer, so the saved copy is used.", apiError);
-
-    // If the browser is offline this fails too, and the error state is shown.
-    // "no-store" makes sure the browser does not secretly reuse an old copy.
-    const response = await fetch(BACKUP_URL, { cache: "no-store" });
-    if (!response.ok) {
+    // No internet (or DevTools set to Offline): show the error state, not old data
+    if (!navigator.onLine || !window.COUNTRIES_BACKUP) {
       throw apiError;
     }
 
-    const json = await response.json();
-    return { countries: json.countries, fromBackup: true, savedOn: json.savedOn };
+    console.warn("The API did not answer, so the saved copy is used.", apiError);
+    const backup = window.COUNTRIES_BACKUP;
+    return { countries: backup.countries, fromBackup: true, savedOn: backup.savedOn };
   }
 }
