@@ -1,5 +1,5 @@
-import { fetchCountriesWithBackup } from "./api.js";
-import { loadFavorites, saveFavorites } from "./storage.js";
+// Uses fetchCountriesWithBackup (api.js) and loadFavorites / saveFavorites (storage.js).
+// index.html loads those files first, so their functions are ready here.
 
 // ---------- Page elements ----------
 const grid = document.getElementById("country-grid");
